@@ -205,6 +205,10 @@ so you don't lose information about the HTTP error.
         response.content_type = "application/json"
         return response
 
+This returns JSON to every client, including browsers. See
+:ref:`html-and-json-errors` to return JSON only to the clients that want
+it.
+
 An error handler for ``Exception`` might seem useful for changing how
 all errors, even unhandled ones, are presented to the user. However,
 this is similar to doing ``except Exception:`` in Python, it will
@@ -507,6 +511,45 @@ This is a simple example:
 A view can now raise that exception with an error message. Additionally
 some extra payload can be provided as a dictionary through the `payload`
 parameter.
+
+
+.. _html-and-json-errors:
+
+Serving Both HTML and JSON Errors
+`````````````````````````````````
+
+An app that serves a browser frontend as well as an API should not send
+JSON to the browser. :attr:`~flask.Request.wants_json` reports whether the
+client prefers JSON over HTML, so one handler can return the right
+representation of every error.
+
+.. code-block:: python
+
+    from flask import render_template, request
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def handle_exception(e):
+        if request.wants_json:
+            return {
+                "code": e.code,
+                "name": e.name,
+                "description": e.description,
+            }, e.code
+
+        return render_template("error.html", e=e), e.code
+
+The quality values in the ``Accept`` header decide. A browser asks for
+:mimetype:`text/html` ahead of its ``*/*`` catch-all, so it gets HTML,
+while a client asking for :mimetype:`application/json` gets JSON. Checking
+``accept_mimetypes.accept_json`` instead would send JSON to the browser
+too, because ``*/*`` accepts JSON as well.
+
+If the client expresses no preference between the two, which includes
+sending no ``Accept`` header at all, HTML is used unless the request body
+is itself JSON. Note that some HTTP clients send ``Accept: */*`` by
+default; such a client gets HTML unless it asks for JSON or sends a JSON
+body.
 
 
 Logging
