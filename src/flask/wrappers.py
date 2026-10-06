@@ -194,6 +194,35 @@ class Request(RequestBase):
 
         return _split_blueprint_path(name)
 
+    @property
+    def wants_json(self) -> bool:
+        """Whether the client prefers a JSON response over an HTML one.
+
+        The quality values the ``Accept`` header gives to
+        ``application/json`` and ``text/html`` are compared. A browser sends
+        ``text/html`` ahead of ``*/*``, so it does not want JSON.
+
+        If the client expresses no preference between the two, which includes
+        sending no ``Accept`` header at all, a JSON request body is taken as a
+        sign that this is an API client rather than a browser. Otherwise HTML
+        is preferred, as that is what a browser following a link should get.
+
+        This is useful in an error handler that serves both an API and a
+        browser, to decide which representation of the error to return. See
+        :doc:`/errorhandling` for an example.
+
+        .. versionadded:: 3.2
+        """
+        json_quality = self.accept_mimetypes.quality("application/json")
+        html_quality = self.accept_mimetypes.quality("text/html")
+
+        if json_quality != html_quality:
+            return json_quality > html_quality
+
+        # The client has no preference between the two. A JSON body is the
+        # best remaining signal that it is not a browser.
+        return self.is_json
+
     def _load_form_data(self) -> None:
         super()._load_form_data()
 
